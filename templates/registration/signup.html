@@ -1,0 +1,7 @@
+{% extends 'base.html' %}
+{% block title %}Criar usuário · ServiceDesk{% endblock %}
+{% block guest_content %}
+<main class="login-page"><section class="login-card"><a class="brand login-brand" href="#"><span class="brand-mark">◌</span> ServiceDesk</a><p class="eyebrow">PRIMEIRO ACESSO</p><h1>Crie seu usuário</h1><p class="muted">Seu perfil será criado como solicitante de chamados.</p>
+  <form method="post">{% csrf_token %}{% if form.non_field_errors %}<div class="form-errors">{{ form.non_field_errors }}</div>{% endif %}{% for field in form %}<label for="{{ field.id_for_label }}">{{ field.label }}</label>{{ field }}{% for error in field.errors %}<span class="error">{{ error }}</span>{% endfor %}{% endfor %}<button class="button primary full" type="submit">Criar usuário</button></form><p class="login-secondary">Já possui uma conta? <a href="{% url 'login' %}">Entrar</a></p>
+</section></main>
+{% endblock %}

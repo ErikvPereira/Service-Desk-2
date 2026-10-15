@@ -1,0 +1,29 @@
+{% load static %}
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>{% block title %}Service Desk{% endblock %}</title>
+  <link rel="stylesheet" href="{% static 'css/app.css' %}">
+</head>
+<body>
+{% if user.is_authenticated %}
+<div class="shell">
+  <aside class="sidebar">
+    <a class="brand" href="{% url 'dashboard' %}"><span class="brand-mark">◌</span> ServiceDesk</a>
+    <nav aria-label="Navegação principal">
+      <a href="{% url 'dashboard' %}" class="{% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}"><span>▦</span> Visão geral</a>
+      <a href="{% url 'ticket-list' %}" class="{% if 'ticket' in request.resolver_match.url_name %}active{% endif %}"><span>▤</span> Chamados</a>
+      {% if user.is_staff %}<a href="/admin/"><span>⚙</span> Administração</a>{% endif %}
+    </nav>
+    <div class="sidebar-footer"><span class="avatar">{{ user.get_full_name|default:user.username|slice:':1'|upper }}</span><div><strong>{{ user.get_full_name|default:user.username }}</strong><small>{{ user.profile.get_role_display }}</small></div><a href="{% url 'logout' %}" title="Sair">↪</a></div>
+  </aside>
+  <main class="main">
+    <header class="topbar"><div><p class="eyebrow">CENTRAL DE ATENDIMENTO</p><h1>{% block heading %}Visão geral{% endblock %}</h1></div><div class="top-actions"><span class="online"><i></i> Sistema online</span><a class="button primary" href="{% url 'ticket-create' %}">+ Novo chamado</a></div></header>
+    {% include 'includes/messages.html' %}
+    {% block content %}{% endblock %}
+  </main>
+</div>
+{% else %}{% block guest_content %}{% endblock %}{% endif %}
+</body>
+</html>

@@ -1,0 +1,36 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: servicedesk_test
+          POSTGRES_USER: servicedesk
+          POSTGRES_PASSWORD: servicedesk
+        options: >-
+          --health-cmd "pg_isready -U servicedesk -d servicedesk_test"
+          --health-interval 10s --health-timeout 5s --health-retries 5
+        ports: [5432:5432]
+    env:
+      DJANGO_SECRET_KEY: ci-only-secret
+      DJANGO_DEBUG: "True"
+      POSTGRES_DB: servicedesk_test
+      POSTGRES_USER: servicedesk
+      POSTGRES_PASSWORD: servicedesk
+      POSTGRES_HOST: 127.0.0.1
+      POSTGRES_PORT: 5432
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.13'}
+      - run: pip install -r requirements.txt
+      - run: python manage.py makemigrations --check --dry-run
+      - run: pytest

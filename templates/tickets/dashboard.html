@@ -1,0 +1,12 @@
+{% extends 'base.html' %}
+{% block heading %}Visão geral{% endblock %}
+{% block content %}
+<section class="stats-grid">
+  <article class="stat-card blue"><span>Chamados abertos</span><strong>{{ counts.open }}</strong><small>Aguardando atendimento</small></article>
+  <article class="stat-card amber"><span>Em andamento</span><strong>{{ counts.in_progress }}</strong><small>Em tratamento pela equipe</small></article>
+  <article class="stat-card purple"><span>Aguardando resposta</span><strong>{{ counts.waiting }}</strong><small>Dependem do solicitante</small></article>
+  <article class="stat-card green"><span>Resolvidos</span><strong>{{ counts.resolved|add:counts.closed }}</strong><small>{% if resolution %}Tempo médio: {{ resolution }}{% else %}Sem dados suficientes{% endif %}</small></article>
+</section>
+<section class="content-grid"><article class="panel"><div class="panel-title"><div><h2>Chamados recentes</h2><p>Atividade mais recente da sua fila.</p></div><a href="{% url 'ticket-list' %}">Ver todos →</a></div><div class="compact-list">{% for ticket in recent %}<a href="{% url 'ticket-detail' ticket.pk %}" class="compact-ticket"><span class="priority-dot {{ ticket.priority }}"></span><div><strong>{{ ticket.title }}</strong><small>{{ ticket.number }} · {{ ticket.get_status_display }}</small></div><time>{{ ticket.created_at|date:'d/m H:i' }}</time></a>{% empty %}<p class="empty">Ainda não há chamados.</p>{% endfor %}</div></article>
+<article class="panel"><div class="panel-title"><div><h2>Distribuição por prioridade</h2><p>Chamados atualmente visíveis.</p></div></div><div class="priority-list">{% for item in priority_counts %}<div><span class="badge {{ item.priority }}">{{ item.get_priority_display|default:item.priority }}</span><strong>{{ item.total }}</strong></div>{% empty %}<p class="empty">Sem chamados.</p>{% endfor %}</div></article></section>
+{% endblock %}
