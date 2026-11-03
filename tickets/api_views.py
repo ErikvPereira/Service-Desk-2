@@ -6,12 +6,15 @@ from .services import audit, is_staff_member, visible_tickets
 
 
 class TicketViewSet(viewsets.ModelViewSet):
+    queryset = Ticket.objects.none()
     serializer_class = TicketSerializer
     filterset_fields = ("status", "priority", "category", "assignee", "requester")
     search_fields = ("number", "title", "description")
     ordering_fields = ("created_at", "updated_at", "priority", "status")
 
     def get_queryset(self):
+        if getattr(self, "swagger_fake_view", False):
+            return Ticket.objects.none()
         return visible_tickets(self.request.user)
 
     def perform_update(self, serializer):
@@ -26,10 +29,13 @@ class TicketViewSet(viewsets.ModelViewSet):
 
 
 class CommentViewSet(viewsets.ModelViewSet):
+    queryset = Comment.objects.none()
     serializer_class = CommentSerializer
     filterset_fields = ("ticket", "internal")
 
     def get_queryset(self):
+        if getattr(self, "swagger_fake_view", False):
+            return Comment.objects.none()
         tickets = visible_tickets(self.request.user)
         queryset = Comment.objects.filter(ticket__in=tickets).select_related("author")
         return queryset if is_staff_member(self.request.user) else queryset.filter(internal=False)
@@ -37,7 +43,10 @@ class CommentViewSet(viewsets.ModelViewSet):
     def perform_update(self, serializer):
         if serializer.instance.author != self.request.user and not self.request.user.is_superuser:
             raise PermissionDenied("Você só pode editar seus próprios comentários.")
+        before = serializer.instance.body
         serializer.save()
+        if before != serializer.instance.body:
+            audit(serializer.instance.ticket, self.request.user, "Comentário editado", "comment", before, serializer.instance.body)
 
     def perform_create(self, serializer):
         comment = serializer.save()
@@ -47,8 +56,8 @@ class CommentViewSet(viewsets.ModelViewSet):
         if instance.author != self.request.user and not self.request.user.is_superuser:
             raise PermissionDenied("Você só pode excluir seus próprios comentários.")
         ticket = instance.ticket
+        audit(ticket, self.request.user, "Comentário excluído", "comment", instance.body, "")
         instance.delete()
-        audit(ticket, self.request.user, "Comentário excluído")
 
 
 class CategoryViewSet(viewsets.ReadOnlyModelViewSet):
@@ -57,9 +66,12 @@ class CategoryViewSet(viewsets.ReadOnlyModelViewSet):
 
 
 class AuditViewSet(viewsets.ReadOnlyModelViewSet):
+    queryset = AuditLog.objects.none()
     serializer_class = AuditSerializer
     filterset_fields = ("ticket", "action", "field")
     def get_queryset(self):
+        if getattr(self, "swagger_fake_view", False):
+            return AuditLog.objects.none()
         if not is_staff_member(self.request.user):
             raise PermissionDenied("O histórico de auditoria é restrito à equipe de atendimento.")
         return AuditLog.objects.filter(ticket__in=visible_tickets(self.request.user)).select_related("actor", "ticket")

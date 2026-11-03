@@ -9,7 +9,20 @@ class TicketCreateForm(forms.ModelForm):
     class Meta:
         model = Ticket
         fields = ("title", "description", "category", "priority")
-        widgets = {"description": forms.Textarea(attrs={"rows": 6, "placeholder": "Descreva o impacto, contexto e o que já foi tentado."})}
+        widgets = {
+            "title": forms.TextInput(attrs={"placeholder": "Ex.: Não consigo acessar o e-mail corporativo"}),
+            "description": forms.Textarea(attrs={"rows": 7, "placeholder": "Explique o que aconteceu, o impacto e o que você já tentou fazer."}),
+        }
+        help_texts = {
+            "title": "Use um resumo claro para facilitar a identificação do problema.",
+            "description": "Inclua detalhes relevantes, como sistema afetado, mensagens exibidas e urgência.",
+            "category": "Escolha a área que melhor representa sua solicitação.",
+            "priority": "Use a prioridade que melhor representa o impacto no seu trabalho.",
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["category"].empty_label = "Selecione uma categoria"
 
 
 class TicketUpdateForm(forms.ModelForm):

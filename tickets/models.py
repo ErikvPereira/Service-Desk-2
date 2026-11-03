@@ -13,6 +13,12 @@ class Profile(models.Model):
     user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="profile")
     role = models.CharField(max_length=16, choices=Role.choices, default=Role.REQUESTER)
 
+    def save(self, *args, **kwargs):
+        super().save(*args, **kwargs)
+        expected_staff = self.role == self.Role.ADMIN
+        if self.user.is_staff != expected_staff:
+            type(self.user).objects.filter(pk=self.user_id).update(is_staff=expected_staff)
+
     @property
     def can_manage_tickets(self):
         return self.role in {self.Role.ADMIN, self.Role.AGENT}
@@ -57,6 +63,7 @@ class Ticket(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     assigned_at = models.DateTimeField(null=True, blank=True)
+    first_response_at = models.DateTimeField(null=True, blank=True)
     resolved_at = models.DateTimeField(null=True, blank=True)
     closed_at = models.DateTimeField(null=True, blank=True)
 
@@ -92,6 +99,7 @@ class Comment(models.Model):
     body = models.TextField(max_length=4000)
     internal = models.BooleanField(default=False, help_text="Visível somente a agentes e administradores.")
     created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
         ordering = ["created_at"]

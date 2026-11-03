@@ -1,2 +1,76 @@
-{% extends 'base.html' %}{% block title %}Novo chamado · ServiceDesk{% endblock %}{% block heading %}Novo chamado{% endblock %}
-{% block content %}<section class="form-layout"><form method="post" class="panel form-panel">{% csrf_token %}<div class="panel-title"><div><h2>Como podemos ajudar?</h2><p>Descreva sua solicitação com o máximo de contexto possível.</p></div></div>{% for field in form %}<div class="field"><label for="{{ field.id_for_label }}">{{ field.label }}</label>{{ field }}{% if field.help_text %}<small>{{ field.help_text }}</small>{% endif %}{% for error in field.errors %}<span class="error">{{ error }}</span>{% endfor %}</div>{% endfor %}<div class="form-actions"><a class="button secondary" href="{% url 'ticket-list' %}">Cancelar</a><button class="button primary" type="submit">Abrir chamado</button></div></form><aside class="tip-card"><span>✦</span><h2>Uma boa solicitação</h2><p>Inclua o impacto, equipamento ou sistema afetado e uma forma de contato. Isso acelera o atendimento.</p></aside></section>{% endblock %}
+{% extends 'base.html' %}
+{% block title %}Abrir novo chamado · ServiceDesk{% endblock %}
+{% block breadcrumb %}<nav class="breadcrumb" aria-label="Navegação estrutural"><a href="{% url 'dashboard' %}">Início</a><span aria-hidden="true">/</span><a href="{% url 'ticket-list' %}">Chamados</a><span aria-hidden="true">/</span><span>Abrir novo chamado</span></nav>{% endblock %}
+{% block heading %}Abrir novo chamado{% endblock %}
+{% block page_subheading %}<p class="page-subheading">Descreva sua solicitação para que a equipe responsável possa ajudá-lo.</p>{% endblock %}
+{% block content %}
+<section class="creation-page" aria-label="Formulário de abertura de chamado">
+  <div class="creation-context"><p><span class="required" aria-hidden="true">*</span> Campos obrigatórios</p><a class="back-link" href="{% url 'ticket-list' %}">← Voltar aos chamados</a></div>
+
+  <form method="post" class="panel ticket-create-form" id="ticket-create-form">
+    {% csrf_token %}
+    {% if form.non_field_errors %}
+      <div class="form-alert" role="alert">{{ form.non_field_errors }}</div>
+    {% endif %}
+
+    <section class="form-section" aria-labelledby="main-information">
+      <div class="form-section-heading">
+        <h2 id="main-information">Informações principais</h2>
+        <p>Os campos marcados com <span aria-hidden="true">*</span> são obrigatórios.</p>
+      </div>
+      <div class="form-field {% if form.title.errors %}has-error{% endif %}">
+        <label for="{{ form.title.id_for_label }}">Título do chamado <span class="required" aria-hidden="true">*</span></label>
+        {{ form.title }}
+        <p class="field-help">{{ form.title.help_text }}</p>
+        {% for error in form.title.errors %}<p class="field-error" role="alert">{{ error }}</p>{% endfor %}
+      </div>
+      <div class="form-field {% if form.description.errors %}has-error{% endif %}">
+        <label for="{{ form.description.id_for_label }}">Descrição <span class="required" aria-hidden="true">*</span></label>
+        {{ form.description }}
+        <p class="field-help">{{ form.description.help_text }}</p>
+        {% for error in form.description.errors %}<p class="field-error" role="alert">{{ error }}</p>{% endfor %}
+      </div>
+    </section>
+
+    <section class="form-section" aria-labelledby="classification">
+      <div class="form-section-heading">
+        <h2 id="classification">Classificação</h2>
+        <p>Essas informações ajudam a direcionar o atendimento.</p>
+      </div>
+      <div class="form-row">
+        <div class="form-field {% if form.category.errors %}has-error{% endif %}">
+          <label for="{{ form.category.id_for_label }}">Categoria <span class="required" aria-hidden="true">*</span></label>
+          {{ form.category }}
+          <p class="field-help">{{ form.category.help_text }}</p>
+          {% for error in form.category.errors %}<p class="field-error" role="alert">{{ error }}</p>{% endfor %}
+        </div>
+        <div class="form-field {% if form.priority.errors %}has-error{% endif %}">
+          <label for="{{ form.priority.id_for_label }}">Prioridade <span class="required" aria-hidden="true">*</span></label>
+          {{ form.priority }}
+          <p class="field-help">{{ form.priority.help_text }}</p>
+          {% for error in form.priority.errors %}<p class="field-error" role="alert">{{ error }}</p>{% endfor %}
+        </div>
+      </div>
+    </section>
+
+    <div class="ticket-form-actions">
+      <a class="button secondary" href="{% url 'ticket-list' %}">Cancelar</a>
+      <button class="button primary" type="submit" aria-describedby="submission-status">
+        <span class="button-label">Criar chamado</span>
+        <span class="button-loading" hidden>Enviando…</span>
+      </button>
+    </div>
+    <p class="submission-status" id="submission-status" aria-live="polite"></p>
+  </form>
+</section>
+<script>
+  document.getElementById("ticket-create-form").addEventListener("submit", function () {
+    if (!this.checkValidity()) return;
+    const button = this.querySelector("button[type='submit']");
+    button.disabled = true;
+    button.querySelector(".button-label").hidden = true;
+    button.querySelector(".button-loading").hidden = false;
+    document.getElementById("submission-status").textContent = "Enviando chamado. Aguarde a confirmação.";
+  });
+</script>
+{% endblock %}

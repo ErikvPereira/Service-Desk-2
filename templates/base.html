@@ -8,18 +8,31 @@
 </head>
 <body>
 {% if user.is_authenticated %}
-<div class="shell">
-  <aside class="sidebar">
-    <a class="brand" href="{% url 'dashboard' %}"><span class="brand-mark">◌</span> ServiceDesk</a>
-    <nav aria-label="Navegação principal">
-      <a href="{% url 'dashboard' %}" class="{% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}"><span>▦</span> Visão geral</a>
-      <a href="{% url 'ticket-list' %}" class="{% if 'ticket' in request.resolver_match.url_name %}active{% endif %}"><span>▤</span> Chamados</a>
-      {% if user.is_staff %}<a href="/admin/"><span>⚙</span> Administração</a>{% endif %}
+<input class="nav-toggle" type="checkbox" id="nav-toggle" aria-label="Abrir menu de navegação">
+<div class="app-shell">
+  <aside class="app-sidebar" aria-label="Navegação principal">
+    <div class="sidebar-brand-wrap">
+      <a class="brand" href="{% url 'dashboard' %}"><span class="brand-mark" aria-hidden="true">✦</span><span>ServiceDesk</span></a>
+      <label for="nav-toggle" class="sidebar-close" aria-label="Fechar menu">×</label>
+    </div>
+    <nav class="sidebar-nav">
+      <a href="{% url 'dashboard' %}" class="{% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}" {% if request.resolver_match.url_name == 'dashboard' %}aria-current="page"{% endif %}><span class="nav-icon" aria-hidden="true">⌂</span><span>Início</span></a>
+      <a href="{% url 'ticket-list' %}" class="{% if request.resolver_match.url_name != 'my-ticket-list' and 'ticket' in request.resolver_match.url_name %}active{% endif %}" {% if request.resolver_match.url_name != 'my-ticket-list' and 'ticket' in request.resolver_match.url_name %}aria-current="page"{% endif %}><span class="nav-icon" aria-hidden="true">▤</span><span>Chamados</span></a>
+      <a href="{% url 'my-ticket-list' %}" class="{% if request.resolver_match.url_name == 'my-ticket-list' %}active{% endif %}" {% if request.resolver_match.url_name == 'my-ticket-list' %}aria-current="page"{% endif %}><span class="nav-icon" aria-hidden="true">◫</span><span>Meus chamados</span></a>
+      {% if user.is_staff %}<a href="/admin/"><span class="nav-icon" aria-hidden="true">⚙</span><span>Administração</span></a>{% endif %}
     </nav>
-    <div class="sidebar-footer"><span class="avatar">{{ user.get_full_name|default:user.username|slice:':1'|upper }}</span><div><strong>{{ user.get_full_name|default:user.username }}</strong><small>{{ user.profile.get_role_display }}</small></div><a href="{% url 'logout' %}" title="Sair">↪</a></div>
+    <div class="sidebar-footer">
+      <span class="avatar" aria-hidden="true">{{ user.get_full_name|default:user.username|slice:':1'|upper }}</span>
+      <div><strong>{{ user.get_full_name|default:user.username }}</strong><small>{{ user.profile.get_role_display }}</small></div>
+    </div>
   </aside>
-  <main class="main">
-    <header class="topbar"><div><p class="eyebrow">CENTRAL DE ATENDIMENTO</p><h1>{% block heading %}Visão geral{% endblock %}</h1></div><div class="top-actions"><span class="online"><i></i> Sistema online</span><a class="button primary" href="{% url 'ticket-create' %}">+ Novo chamado</a></div></header>
+  <label for="nav-toggle" class="nav-backdrop" aria-hidden="true"></label>
+  <main class="app-main">
+    <header class="app-topbar">
+      <div class="mobile-brand"><label for="nav-toggle" class="menu-button" aria-label="Abrir menu">☰</label><a href="{% url 'dashboard' %}">ServiceDesk</a></div>
+      <div class="page-heading">{% block breadcrumb %}<p class="eyebrow">CENTRAL DE ATENDIMENTO</p>{% endblock %}<h1>{% block heading %}Visão geral{% endblock %}</h1>{% block page_subheading %}{% endblock %}</div>
+      <div class="top-actions"><a class="button primary new-ticket-button" href="{% url 'ticket-create' %}"><span aria-hidden="true">＋</span> Novo chamado</a><div class="user-summary"><span class="avatar" aria-hidden="true">{{ user.get_full_name|default:user.username|slice:':1'|upper }}</span><div><strong>{{ user.get_full_name|default:user.username }}</strong><a href="{% url 'logout' %}">Sair</a></div></div></div>
+    </header>
     {% include 'includes/messages.html' %}
     {% block content %}{% endblock %}
   </main>

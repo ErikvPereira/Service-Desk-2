@@ -4,6 +4,8 @@ from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.core.paginator import Paginator
 from django.db.models import Avg, Count, DurationField, ExpressionWrapper, F, Q
+from django.utils import timezone
+from datetime import timedelta
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from .forms import CommentForm, SignUpForm, TicketCreateForm, TicketUpdateForm
@@ -41,24 +43,48 @@ def dashboard(request):
     tickets = visible_tickets(request.user)
     counts = {value: tickets.filter(status=value).count() for value, _label in Ticket.Status.choices}
     priority_counts = tickets.values("priority").annotate(total=Count("id")).order_by("priority")
-    resolution = tickets.filter(resolved_at__isnull=False).aggregate(value=Avg(ExpressionWrapper(F("resolved_at") - F("created_at"), output_field=DurationField())))["value"]
-    return render(request, "tickets/dashboard.html", {"counts": counts, "priority_counts": priority_counts, "resolution": resolution, "recent": tickets[:6]})
+    resolved = tickets.filter(resolved_at__isnull=False)
+    resolution = resolved.aggregate(value=Avg(ExpressionWrapper(F("resolved_at") - F("created_at"), output_field=DurationField())))["value"]
+    first_response = tickets.filter(first_response_at__isnull=False).aggregate(value=Avg(ExpressionWrapper(F("first_response_at") - F("created_at"), output_field=DurationField())))["value"]
+    sla_hours = int(__import__("os").getenv("SERVICEDESK_SLA_HOURS", "72"))
+    overdue = tickets.filter(status__in=[Ticket.Status.OPEN, Ticket.Status.IN_PROGRESS, Ticket.Status.WAITING], created_at__lt=timezone.now() - timedelta(hours=sla_hours)).count()
+    return render(request, "tickets/dashboard.html", {"counts": counts, "priority_counts": priority_counts, "resolution": resolution, "first_response": first_response, "overdue": overdue, "sla_hours": sla_hours, "recent": tickets[:6]})
 
 
 @login_required
 def ticket_list(request):
-    tickets = _filters(request, visible_tickets(request.user))
+    visible = visible_tickets(request.user)
+    tickets = _filters(request, visible)
+    return _render_ticket_list(request, tickets, visible, "Chamados", "Todos os chamados", "ticket-list")
+
+
+@login_required
+def my_ticket_list(request):
+    visible = visible_tickets(request.user).filter(requester=request.user)
+    tickets = _filters(request, visible)
+    return _render_ticket_list(request, tickets, visible, "Meus chamados", "Meus chamados", "my-ticket-list")
+
+
+def _render_ticket_list(request, tickets, visible_tickets_queryset, page_title, table_title, list_url_name):
     page_obj = Paginator(tickets, 20).get_page(request.GET.get("page"))
+    ticket_summary = visible_tickets_queryset.aggregate(
+        total=Count("id"),
+        open=Count("id", filter=Q(status=Ticket.Status.OPEN)),
+        in_progress=Count("id", filter=Q(status=Ticket.Status.IN_PROGRESS)),
+        waiting=Count("id", filter=Q(status=Ticket.Status.WAITING)),
+        closed=Count("id", filter=Q(status=Ticket.Status.CLOSED)),
+    )
     return render(request, "tickets/ticket_list.html", {
         "tickets": page_obj, "page_obj": page_obj, "statuses": Ticket.Status.choices, "priorities": Ticket.Priority.choices,
         "categories": Category.objects.filter(active=True),
         "agents": Profile.objects.filter(role__in=[Profile.Role.ADMIN, Profile.Role.AGENT], user__is_active=True).select_related("user"),
+        "page_title": page_title, "table_title": table_title, "ticket_summary": ticket_summary, "list_url_name": list_url_name,
     })
 
 
 @login_required
 def ticket_create(request):
-    form = TicketCreateForm(request.POST or None)
+    form = TicketCreateForm(request.POST if request.method == "POST" else None)
     if request.method == "POST" and form.is_valid():
         ticket = form.save(commit=False)
         ticket.requester = request.user

@@ -42,6 +42,8 @@ def update_ticket(ticket, actor, **changes):
             raise ValidationError({"status": f"Transição de {ticket.get_status_display()} não permitida."})
         previous = ticket.status
         ticket.status = status
+        if status == Ticket.Status.IN_PROGRESS and ticket.first_response_at is None:
+            ticket.first_response_at = timezone.now()
         if status == Ticket.Status.RESOLVED:
             ticket.resolved_at = timezone.now()
         if status == Ticket.Status.CLOSED:

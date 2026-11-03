@@ -12,6 +12,8 @@ Aplicação corporativa para abertura, distribuição e acompanhamento de chamad
 - Histórico imutável de auditoria para operações relevantes.
 - Indicadores de fila, prioridade e tempo médio de resolução calculados a partir dos dados reais.
 - API REST paginada, com busca, filtros, ordenação, documentação Swagger e as mesmas regras de visibilidade da interface.
+- Autenticação externa da API por token revogável (DRF Token Authentication).
+- Indicadores reais de primeira resposta, resolução e chamados fora do SLA configurável.
 - Testes com pytest/pytest-django, Docker Compose e integração contínua no GitHub Actions.
 
 ## Arquitetura
@@ -39,7 +41,7 @@ As regras que mudam o ciclo de vida ficam em `tickets/services.py`, não nos tem
 
 Transições permitidas: **Aberto → Em andamento/Encerrado**, **Em andamento → Aguardando solicitante/Resolvido/Encerrado**, **Aguardando solicitante → Em andamento/Resolvido/Encerrado**, **Resolvido → Encerrado/Em andamento** e **Encerrado → Em andamento** (reabertura). Atribuições exigem um agente ou administrador ativo. Registros de auditoria não podem ser alterados nem excluídos pelo domínio da aplicação.
 
-Usuários inativos não conseguem autenticar-se; responsáveis inativos são recusados pela validação do modelo. Todas as operações relevantes são registradas com responsável, data e valores anterior/posterior quando houver mudança de campo.
+Usuários inativos não conseguem autenticar-se; responsáveis inativos são recusados pela validação do modelo. O perfil Administrador recebe acesso ao Django Admin, mas apenas superusuários podem promover outro usuário a Administrador ou excluir usuários. Todas as operações relevantes são registradas com responsável, data e valores anterior/posterior quando houver mudança de campo. Edições e exclusões de comentários também geram auditoria. A exclusão de chamados está desativada no Django Admin.
 
 ## Executar com Docker
 
@@ -50,7 +52,7 @@ cp .env.example .env
 docker compose up --build
 ```
 
-O serviço aguarda o healthcheck do PostgreSQL, aplica as migrações e fica disponível em [http://localhost:8000](http://localhost:8000). A documentação interativa da API fica em [http://localhost:8000/api/docs/](http://localhost:8000/api/docs/).
+O serviço aguarda o healthcheck do PostgreSQL, aplica as migrações, coleta os estáticos e fica disponível em [http://localhost:8000](http://localhost:8000). A documentação interativa da API fica em [http://localhost:8000/api/docs/](http://localhost:8000/api/docs/). O endpoint `/health/` verifica a aplicação e a conexão com o banco.
 
 Crie o primeiro administrador em outro terminal:
 
@@ -59,6 +61,10 @@ docker compose exec web python manage.py createsuperuser
 ```
 
 O administrador também pode cadastrar categorias, usuários e perfis em [http://localhost:8000/admin/](http://localhost:8000/admin/). Após criar usuários, ajuste seu perfil para Agente ou Administrador nessa tela quando necessário.
+
+### Acesso à API
+
+Autentique com `POST /api/token/`, enviando `username` e `password`; a resposta contém o token. Envie-o nas chamadas como `Authorization: Token <token>`. Um administrador pode revogar o token apagando-o no Django Admin em “Tokens de autenticação”. Gere um token separado para cada integração e armazene-o num gestor de segredos.
 
 ### Testes e verificações
 
@@ -88,6 +94,10 @@ No Windows, use os equivalentes em `.venv\\Scripts`. O banco principal é sempre
 - Para reinicializar os dados locais, execute `docker compose down -v` e depois `docker compose up --build`. Isso remove o volume de desenvolvimento do PostgreSQL.
 - Se a aplicação não conectar ao banco, verifique `docker compose logs db` e confirme os valores de `POSTGRES_*` no `.env`.
 - Em produção, defina `DJANGO_DEBUG=False`, uma chave secreta forte, hosts permitidos e TLS na borda. As opções de cookie seguro e redirecionamento HTTPS já são habilitadas fora do modo de depuração.
+- Configure `SERVICEDESK_SLA_HOURS` (padrão 72) para o indicador de chamados abertos fora do prazo.
+- Para gerar backup PostgreSQL sob demanda, execute `docker compose --profile ops run --rm backup`. Os arquivos são gravados no diretório definido em `BACKUP_DIR` (padrão `./backups`). Para restaurar, use `pg_restore` contra uma base previamente criada; teste a restauração periodicamente.
+- Logs da aplicação são emitidos em JSON para stdout/stderr. O healthcheck do container web consulta `/health/` e valida o PostgreSQL.
+- `DJANGO_SECRET_KEY` é obrigatória. Em produção, habilite `DJANGO_SECURE_SSL_REDIRECT=True` somente quando TLS estiver configurado no proxy; HSTS é ativado fora de DEBUG.
 
 ## Limitações conhecidas
 

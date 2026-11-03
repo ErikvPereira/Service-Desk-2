@@ -38,8 +38,8 @@ class TicketSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Ticket
-        fields = ("id", "number", "title", "description", "category", "requester", "requester_name", "assignee", "assignee_name", "priority", "status", "created_at", "updated_at", "assigned_at", "resolved_at", "closed_at")
-        read_only_fields = ("number", "requester", "created_at", "updated_at", "assigned_at", "resolved_at", "closed_at")
+        fields = ("id", "number", "title", "description", "category", "requester", "requester_name", "assignee", "assignee_name", "priority", "status", "created_at", "updated_at", "assigned_at", "first_response_at", "resolved_at", "closed_at")
+        read_only_fields = ("number", "requester", "created_at", "updated_at", "assigned_at", "first_response_at", "resolved_at", "closed_at")
 
     def create(self, validated_data):
         ticket = Ticket.objects.create(requester=self.context["request"].user, **validated_data)

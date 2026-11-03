@@ -7,6 +7,11 @@
   <article class="stat-card purple"><span>Aguardando resposta</span><strong>{{ counts.waiting }}</strong><small>Dependem do solicitante</small></article>
   <article class="stat-card green"><span>Resolvidos</span><strong>{{ counts.resolved|add:counts.closed }}</strong><small>{% if resolution %}Tempo médio: {{ resolution }}{% else %}Sem dados suficientes{% endif %}</small></article>
 </section>
+<section class="stats-grid operational-stats">
+  <article class="stat-card blue"><span>Tempo médio até primeiro atendimento</span><strong>{% if first_response %}{{ first_response }}{% else %}—{% endif %}</strong><small>Desde a abertura até Em andamento</small></article>
+  <article class="stat-card green"><span>Tempo médio de resolução</span><strong>{% if resolution %}{{ resolution }}{% else %}—{% endif %}</strong><small>Chamados com resolução registrada</small></article>
+  <article class="stat-card amber"><span>Chamados fora do SLA</span><strong>{{ overdue }}</strong><small>Prazo configurado: {{ sla_hours }} horas</small></article>
+</section>
 <section class="content-grid"><article class="panel"><div class="panel-title"><div><h2>Chamados recentes</h2><p>Atividade mais recente da sua fila.</p></div><a href="{% url 'ticket-list' %}">Ver todos →</a></div><div class="compact-list">{% for ticket in recent %}<a href="{% url 'ticket-detail' ticket.pk %}" class="compact-ticket"><span class="priority-dot {{ ticket.priority }}"></span><div><strong>{{ ticket.title }}</strong><small>{{ ticket.number }} · {{ ticket.get_status_display }}</small></div><time>{{ ticket.created_at|date:'d/m H:i' }}</time></a>{% empty %}<p class="empty">Ainda não há chamados.</p>{% endfor %}</div></article>
 <article class="panel"><div class="panel-title"><div><h2>Distribuição por prioridade</h2><p>Chamados atualmente visíveis.</p></div></div><div class="priority-list">{% for item in priority_counts %}<div><span class="badge {{ item.priority }}">{{ item.get_priority_display|default:item.priority }}</span><strong>{{ item.total }}</strong></div>{% empty %}<p class="empty">Sem chamados.</p>{% endfor %}</div></article></section>
 {% endblock %}
