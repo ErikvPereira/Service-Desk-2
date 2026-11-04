@@ -2,6 +2,7 @@ from django.contrib import messages
 from django.contrib.auth import get_user_model
 from django.contrib.auth import login
 from django.contrib.auth.decorators import login_required
+from django.contrib.auth import views as auth_views
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.core.paginator import Paginator
 from django.db import connection, transaction
@@ -31,6 +32,9 @@ def _filters(request, queryset):
 def signup(request):
     if request.user.is_authenticated:
         return redirect("dashboard")
+    if get_user_model().objects.exists():
+        messages.error(request, "O cadastro público está fechado. Solicite uma conta ao administrador do Service Desk.")
+        return redirect("login")
     form = SignUpForm(request.POST or None)
     if request.method == "POST" and form.is_valid():
         with transaction.atomic():
@@ -39,11 +43,14 @@ def signup(request):
             with connection.cursor() as cursor:
                 cursor.execute("SELECT pg_advisory_xact_lock(%s)", [7342026])
             first_user = not get_user_model().objects.exists()
-            user = form.save()
-            if first_user:
+            user = form.save() if first_user else None
+            if user is not None:
                 user.profile.role = Profile.Role.ADMIN
                 user.profile.save()
-        login(request, user)
+        if user is None:
+            messages.error(request, "O cadastro público foi fechado. Solicite uma conta ao administrador do Service Desk.")
+            return redirect("login")
+        login(request, user, backend="django.contrib.auth.backends.ModelBackend")
         messages.success(
             request,
             "Administrador inicial criado com sucesso."
@@ -54,6 +61,15 @@ def signup(request):
         "form": form,
         "first_user": not get_user_model().objects.exists(),
     })
+
+
+class ServiceDeskLoginView(auth_views.LoginView):
+    template_name = "registration/login.html"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["signup_open"] = not get_user_model().objects.exists()
+        return context
 
 
 @login_required
@@ -136,9 +152,13 @@ def ticket_detail(request, pk):
             except (ValidationError, PermissionDenied) as exc:
                 update_form.add_error(None, exc)
     comments = ticket.comments.select_related("author")
+    audits = ticket.audit_logs.select_related("actor")
     if not can_manage:
         comments = comments.filter(internal=False)
+        audits = (audits.exclude(action__startswith="Nota interna")
+                  .exclude(action="Comentário interno adicionado")
+                  .exclude(action__in=("Comentário editado", "Comentário excluído")))
     return render(request, "tickets/ticket_detail.html", {
         "ticket": ticket, "comment_form": comment_form, "update_form": update_form,
-        "comments": comments, "audits": ticket.audit_logs.select_related("actor"), "can_manage": can_manage,
+        "comments": comments, "audits": audits, "can_manage": can_manage,
     })

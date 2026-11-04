@@ -19,12 +19,12 @@ services:
       gunicorn config.wsgi:application --bind 0.0.0.0:8000"
     env_file: .env
     ports:
-      - "8000:8000"
+      - "127.0.0.1:8000:8000"
     depends_on:
       db:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health/')"]
+      test: ["CMD", "python", "-c", "import os,urllib.request; host=os.getenv('DJANGO_ALLOWED_HOSTS','localhost').split(',')[0]; req=urllib.request.Request('http://127.0.0.1:8000/health/',headers={'Host':host,'X-Forwarded-Proto':'https'}); urllib.request.urlopen(req)"]
       interval: 30s
       timeout: 5s
       retries: 3

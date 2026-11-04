@@ -1,6 +1,7 @@
 from django.contrib import admin
-from django.contrib.auth.admin import UserAdmin as DjangoUserAdmin
+from django.conf import settings
 from django.contrib.auth import get_user_model
+from django.contrib.auth.admin import UserAdmin as DjangoUserAdmin
 from rest_framework.authtoken.models import Token
 from .models import AuditLog, Category, Comment, Profile, Ticket
 
@@ -37,13 +38,29 @@ class ServiceAdminPermissionsMixin:
 
 @admin.register(Token)
 class APITokenAdmin(admin.ModelAdmin):
-    list_display = ("user", "created")
+    list_display = ("user", "created", "expires_at")
     search_fields = ("user__username", "user__email")
     readonly_fields = ("key", "created", "user")
     fields = ("key", "created", "user")
 
     def has_add_permission(self, request):
         return False
+
+    def has_module_permission(self, request):
+        return is_service_admin(request)
+
+    def has_view_permission(self, request, obj=None):
+        return is_service_admin(request)
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return is_service_admin(request)
+
+    @admin.display(description="Expira em")
+    def expires_at(self, obj):
+        return obj.created + settings.API_TOKEN_LIFETIME
 
 
 @admin.register(get_user_model())
@@ -67,14 +84,18 @@ class UserAdmin(DjangoUserAdmin):
     def has_change_permission(self, request, obj=None):
         if not self.has_module_permission(request):
             return False
-        if obj and obj.is_superuser and not request.user.is_superuser:
+        if obj and not request.user.is_superuser and (
+            obj.is_superuser or (hasattr(obj, "profile") and obj.profile.role == Profile.Role.ADMIN)
+        ):
             return False
         return True
 
     def has_delete_permission(self, request, obj=None):
         if not is_service_admin(request):
             return False
-        return not obj or not obj.is_superuser or request.user.is_superuser
+        return not obj or request.user.is_superuser or (
+            not obj.is_superuser and not (hasattr(obj, "profile") and obj.profile.role == Profile.Role.ADMIN)
+        )
 
 
 @admin.register(Profile)
@@ -102,9 +123,7 @@ class ProfileAdmin(admin.ModelAdmin):
         return True
 
     def has_delete_permission(self, request, obj=None):
-        if not is_service_admin(request):
-            return False
-        return not obj or obj.role != Profile.Role.ADMIN or request.user.is_superuser
+        return False
 
 
 @admin.register(Ticket)
@@ -114,8 +133,14 @@ class TicketAdmin(ServiceAdminPermissionsMixin, admin.ModelAdmin):
     search_fields = ("number", "title", "requester__username")
     readonly_fields = ("number", "created_at", "updated_at", "assigned_at", "first_response_at", "resolved_at", "closed_at")
 
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
     def has_delete_permission(self, request, obj=None):
-        return is_service_admin(request)
+        return False
 
 
 @admin.register(Category)
@@ -128,23 +153,31 @@ class CategoryAdmin(ServiceAdminPermissionsMixin, admin.ModelAdmin):
 @admin.register(Comment)
 class CommentAdmin(ServiceAdminPermissionsMixin, admin.ModelAdmin):
     list_display = ("ticket", "author", "internal", "created_at", "updated_at")
-    readonly_fields = ("created_at", "updated_at")
+    readonly_fields = ("ticket", "author", "created_at", "updated_at")
 
     def save_model(self, request, obj, form, change):
         if change:
             old = Comment.objects.get(pk=obj.pk)
             if old.body != obj.body:
-                AuditLog.objects.create(ticket=obj.ticket, actor=request.user, action="Comentário editado", field="comment", previous_value=old.body, new_value=obj.body)
+                action = "Nota interna editada" if old.internal or obj.internal else "Comentário editado"
+                AuditLog.objects.create(ticket=obj.ticket, actor=request.user, action=action, field="comment", previous_value=old.body, new_value=obj.body)
+            if old.internal != obj.internal:
+                action = "Nota interna alterada" if old.internal or obj.internal else "Visibilidade do comentário alterada"
+                AuditLog.objects.create(ticket=obj.ticket, actor=request.user, action=action, field="internal", previous_value=old.internal, new_value=obj.internal)
         super().save_model(request, obj, form, change)
 
     def delete_model(self, request, obj):
-        AuditLog.objects.create(ticket=obj.ticket, actor=request.user, action="Comentário excluído", field="comment", previous_value=obj.body)
+        action = "Nota interna excluída" if obj.internal else "Comentário excluído"
+        AuditLog.objects.create(ticket=obj.ticket, actor=request.user, action=action, field="comment", previous_value=obj.body)
         super().delete_model(request, obj)
 
     def delete_queryset(self, request, queryset):
         for obj in queryset.select_related("ticket"):
-            AuditLog.objects.create(ticket=obj.ticket, actor=request.user, action="Comentário excluído", field="comment", previous_value=obj.body)
+            action = "Nota interna excluída" if obj.internal else "Comentário excluído"
+            AuditLog.objects.create(ticket=obj.ticket, actor=request.user, action=action, field="comment", previous_value=obj.body)
         queryset.delete()
+
+
 @admin.register(AuditLog)
 class AuditLogAdmin(ServiceAdminPermissionsMixin, admin.ModelAdmin):
     list_display = ("ticket", "action", "field", "actor", "created_at")
@@ -157,4 +190,4 @@ class AuditLogAdmin(ServiceAdminPermissionsMixin, admin.ModelAdmin):
         return False
 
     def has_delete_permission(self, request, obj=None):
-        return is_service_admin(request)
+        return False

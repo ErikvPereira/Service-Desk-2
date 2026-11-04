@@ -2,6 +2,6 @@
 {% block title %}Entrar · ServiceDesk{% endblock %}
 {% block guest_content %}
 <main class="login-page"><section class="login-card"><a class="brand login-brand" href="#"><span class="brand-mark">◌</span> ServiceDesk</a><p class="eyebrow">BEM-VINDO DE VOLTA</p><h1>Entre na central de atendimento</h1><p class="muted">Acompanhe solicitações e mantenha sua equipe em movimento.</p>
-  <form method="post">{% csrf_token %}{% if form.non_field_errors %}<div class="form-errors">{{ form.non_field_errors }}</div>{% endif %}<label for="id_username">Usuário</label>{{ form.username }}<label for="id_password">Senha</label>{{ form.password }}<button class="button primary full" type="submit">Entrar</button></form><p class="login-secondary">Ainda não tem conta? <a href="{% url 'signup' %}">Criar usuário</a></p>
+  <form method="post">{% csrf_token %}{% if form.non_field_errors %}<div class="form-errors">{{ form.non_field_errors }}</div>{% endif %}<label for="id_username">Usuário</label>{{ form.username }}<label for="id_password">Senha</label>{{ form.password }}<button class="button primary full" type="submit">Entrar</button></form>{% if signup_open %}<p class="login-secondary">Primeiro acesso? <a href="{% url 'signup' %}">Criar administrador inicial</a></p>{% endif %}
 </section></main>
 {% endblock %}

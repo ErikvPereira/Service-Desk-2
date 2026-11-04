@@ -31,7 +31,7 @@
     <header class="app-topbar">
       <div class="mobile-brand"><label for="nav-toggle" class="menu-button" aria-label="Abrir menu">☰</label><a href="{% url 'dashboard' %}">ServiceDesk</a></div>
       <div class="page-heading">{% block breadcrumb %}<p class="eyebrow">CENTRAL DE ATENDIMENTO</p>{% endblock %}<h1>{% block heading %}Visão geral{% endblock %}</h1>{% block page_subheading %}{% endblock %}</div>
-      <div class="top-actions"><a class="button primary new-ticket-button" href="{% url 'ticket-create' %}"><span aria-hidden="true">＋</span> Novo chamado</a><div class="user-summary"><span class="avatar" aria-hidden="true">{{ user.get_full_name|default:user.username|slice:':1'|upper }}</span><div><strong>{{ user.get_full_name|default:user.username }}</strong><a href="{% url 'logout' %}">Sair</a></div></div></div>
+      <div class="top-actions"><a class="button primary new-ticket-button" href="{% url 'ticket-create' %}"><span aria-hidden="true">＋</span> Novo chamado</a><div class="user-summary"><span class="avatar" aria-hidden="true">{{ user.get_full_name|default:user.username|slice:':1'|upper }}</span><div><strong>{{ user.get_full_name|default:user.username }}</strong><form method="post" action="{% url 'logout' %}">{% csrf_token %}<button type="submit">Sair</button></form></div></div></div>
     </header>
     {% include 'includes/messages.html' %}
     {% block content %}{% endblock %}

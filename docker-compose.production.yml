@@ -1,0 +1,36 @@
+services:
+  db:
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set a strong POSTGRES_PASSWORD in .env}
+
+  web:
+    environment:
+      DJANGO_DEBUG: "False"
+      DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:?Set DJANGO_SECRET_KEY in .env}
+      DJANGO_ALLOWED_HOSTS: ${SERVICEDESK_HOST:?Set SERVICEDESK_HOST in .env}
+      DJANGO_CSRF_TRUSTED_ORIGINS: https://${SERVICEDESK_HOST:?Set SERVICEDESK_HOST in .env}
+      DJANGO_SECURE_SSL_REDIRECT: "True"
+      DJANGO_SECURE_HSTS_SECONDS: ${DJANGO_SECURE_HSTS_SECONDS:-31536000}
+    ports:
+      - "127.0.0.1:8000:8000"
+
+  proxy:
+    image: caddy:2.11.8-alpine
+    restart: unless-stopped
+    environment:
+      SERVICEDESK_HOST: ${SERVICEDESK_HOST:?Set SERVICEDESK_HOST in .env}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      web:
+        condition: service_healthy
+
+volumes:
+  caddy_data:
+  caddy_config:

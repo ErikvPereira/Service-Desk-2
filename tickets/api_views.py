@@ -23,9 +23,7 @@ class TicketViewSet(viewsets.ModelViewSet):
         serializer.save()
 
     def perform_destroy(self, instance):
-        if not self.request.user.is_superuser:
-            raise PermissionDenied("Chamados não podem ser excluídos, exceto por administradores.")
-        instance.delete()
+        raise PermissionDenied("Chamados não podem ser excluídos para preservar o histórico de auditoria.")
 
 
 class CommentViewSet(viewsets.ModelViewSet):
@@ -44,9 +42,14 @@ class CommentViewSet(viewsets.ModelViewSet):
         if serializer.instance.author != self.request.user and not self.request.user.is_superuser:
             raise PermissionDenied("Você só pode editar seus próprios comentários.")
         before = serializer.instance.body
+        was_internal = serializer.instance.internal
         serializer.save()
         if before != serializer.instance.body:
-            audit(serializer.instance.ticket, self.request.user, "Comentário editado", "comment", before, serializer.instance.body)
+            action = "Nota interna editada" if was_internal or serializer.instance.internal else "Comentário editado"
+            audit(serializer.instance.ticket, self.request.user, action, "comment", before, serializer.instance.body)
+        if was_internal != serializer.instance.internal:
+            action = "Nota interna alterada" if was_internal or serializer.instance.internal else "Visibilidade do comentário alterada"
+            audit(serializer.instance.ticket, self.request.user, action, "internal", was_internal, serializer.instance.internal)
 
     def perform_create(self, serializer):
         comment = serializer.save()
@@ -56,7 +59,8 @@ class CommentViewSet(viewsets.ModelViewSet):
         if instance.author != self.request.user and not self.request.user.is_superuser:
             raise PermissionDenied("Você só pode excluir seus próprios comentários.")
         ticket = instance.ticket
-        audit(ticket, self.request.user, "Comentário excluído", "comment", instance.body, "")
+        action = "Nota interna excluída" if instance.internal else "Comentário excluído"
+        audit(ticket, self.request.user, action, "comment", instance.body, "")
         instance.delete()
 
 

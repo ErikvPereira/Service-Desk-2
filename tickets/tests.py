@@ -145,6 +145,10 @@ def test_audit_record_is_immutable(ticket, requester):
     audit.action = "Alterado"
     with pytest.raises(ValidationError):
         audit.save()
+    with pytest.raises(ValidationError):
+        AuditLog.objects.filter(pk=audit.pk).delete()
+    with pytest.raises(ValidationError):
+        AuditLog.objects.filter(pk=audit.pk).update(action="Alterado")
 
 
 @pytest.mark.django_db
@@ -157,14 +161,22 @@ def test_login_and_inactive_user(client, requester):
 
 
 @pytest.mark.django_db
-def test_signup_creates_requester_and_authenticates(client):
+def test_first_signup_creates_admin_and_closes_public_signup(client):
     response = client.post(reverse("signup"), {
         "username": "novo", "password1": "A-safe-password-123!", "password2": "A-safe-password-123!",
     })
     user = User.objects.get(username="novo")
     assert response.status_code == 302
-    assert user.profile.role == Profile.Role.REQUESTER
+    assert user.profile.role == Profile.Role.ADMIN
+    assert user.is_staff
     assert int(client.session["_auth_user_id"]) == user.pk
+    client.logout()
+    assert client.get(reverse("signup")).status_code == 302
+    denied = client.post(reverse("signup"), {
+        "username": "nao-autorizado", "password1": "A-safe-password-123!", "password2": "A-safe-password-123!",
+    })
+    assert denied.status_code == 302
+    assert not User.objects.filter(username="nao-autorizado").exists()
 
 
 @pytest.mark.django_db
@@ -185,6 +197,11 @@ def test_comment_internal_visibility_and_audit(client, ticket, agent, requester)
     client.force_login(agent)
     response = client.get(reverse("ticket-detail", kwargs={"pk": ticket.pk}))
     assert "Nota privada" in response.content.decode()
+    AuditLog.objects.create(ticket=ticket, actor=agent, action="Nota interna editada", field="comment", previous_value="Segredo anterior", new_value="Nota privada")
+    client.force_login(requester)
+    response = client.get(reverse("ticket-detail", kwargs={"pk": ticket.pk}))
+    assert "Segredo anterior" not in response.content.decode()
+    assert "Nota privada" not in response.content.decode()
     internal.body = "Texto editado"
     internal.save()
     AuditLog.objects.create(ticket=ticket, actor=agent, action="Comentário editado", field="comment", previous_value="Nota privada", new_value=internal.body)
@@ -252,9 +269,41 @@ def test_api_comment_create_update_delete_are_audited(ticket, requester):
 
 @pytest.mark.django_db
 def test_schema_and_token_endpoint_work(client):
+    assert client.get("/api/schema/").status_code == 403
+    assert client.get("/api/docs/").status_code == 403
+    assert client.post("/api/token/", {}).status_code == 400
+    admin_user = User.objects.create_superuser("schema-admin", "schema@example.test", "safe-password-123")
+    client.force_login(admin_user)
     assert client.get("/api/schema/").status_code == 200
     assert client.get("/api/docs/").status_code == 200
-    assert client.post("/api/token/", {}).status_code == 400
+
+
+@pytest.mark.django_db
+def test_api_tokens_expire_and_can_be_reissued(requester):
+    from datetime import timedelta
+    from django.utils import timezone
+
+    api_client = APIClient()
+    token = Token.objects.create(user=requester)
+    token.created = timezone.now() - timedelta(days=31)
+    token.save(update_fields=("created",))
+    api_client.credentials(HTTP_AUTHORIZATION=f"Token {token.key}")
+    assert api_client.get("/api/v1/tickets/").status_code == 401
+    assert not Token.objects.filter(pk=token.pk).exists()
+    api_client.credentials()
+    response = api_client.post("/api/token/", {"username": "solicitante", "password": "safe-password-123"})
+    assert response.status_code == 200
+    assert response.json()["token"]
+    assert response.json()["expires_at"]
+
+
+@pytest.mark.django_db
+def test_ticket_cannot_be_deleted_through_api(ticket):
+    admin_user = User.objects.create_superuser("delete-admin", "delete@example.test", "safe-password-123")
+    client = APIClient()
+    client.force_authenticate(admin_user)
+    assert client.delete(f"/api/v1/tickets/{ticket.pk}/").status_code == 403
+    assert Ticket.objects.filter(pk=ticket.pk).exists()
 
 
 @pytest.mark.django_db

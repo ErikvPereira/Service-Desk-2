@@ -105,8 +105,21 @@ class Comment(models.Model):
         ordering = ["created_at"]
 
 
+class ImmutableAuditLogQuerySet(models.QuerySet):
+    def update(self, **kwargs):
+        raise ValidationError("Registros de auditoria são imutáveis.")
+
+    def delete(self):
+        raise ValidationError("Registros de auditoria não podem ser excluídos.")
+
+    def bulk_update(self, objs, fields, batch_size=None):
+        raise ValidationError("Registros de auditoria são imutáveis.")
+
+
 class AuditLog(models.Model):
-    ticket = models.ForeignKey(Ticket, on_delete=models.CASCADE, related_name="audit_logs")
+    objects = ImmutableAuditLogQuerySet.as_manager()
+
+    ticket = models.ForeignKey(Ticket, on_delete=models.PROTECT, related_name="audit_logs")
     actor = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="ticket_audits")
     action = models.CharField(max_length=80)
     field = models.CharField(max_length=80, blank=True)

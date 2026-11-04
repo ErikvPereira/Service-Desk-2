@@ -3,7 +3,8 @@ from django.contrib import admin
 from django.contrib.staticfiles.urls import staticfiles_urlpatterns
 from django.urls import include, path
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
-from rest_framework.authtoken.views import obtain_auth_token
+from rest_framework.permissions import IsAdminUser
+from tickets.authentication import ObtainExpiringAuthToken
 from django.http import JsonResponse
 from django.views.decorators.http import require_GET
 
@@ -18,10 +19,10 @@ urlpatterns = [
     path("admin/", admin.site.urls),
     path("", include("tickets.urls")),
     path("api/v1/", include("tickets.api_urls")),
-    path("api/token/", obtain_auth_token, name="api-token"),
+    path("api/token/", ObtainExpiringAuthToken.as_view(), name="api-token"),
     path("health/", health, name="health"),
-    path("api/schema/", SpectacularAPIView.as_view(), name="schema"),
-    path("api/docs/", SpectacularSwaggerView.as_view(url_name="schema"), name="api-docs"),
+    path("api/schema/", SpectacularAPIView.as_view(permission_classes=[IsAdminUser]), name="schema"),
+    path("api/docs/", SpectacularSwaggerView.as_view(url_name="schema", permission_classes=[IsAdminUser]), name="api-docs"),
 ]
 if settings.DEBUG:
     urlpatterns += staticfiles_urlpatterns()
