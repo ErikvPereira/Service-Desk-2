@@ -1,8 +1,10 @@
 from django.contrib import messages
+from django.contrib.auth import get_user_model
 from django.contrib.auth import login
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.core.paginator import Paginator
+from django.db import connection, transaction
 from django.db.models import Avg, Count, DurationField, ExpressionWrapper, F, Q
 from django.utils import timezone
 from datetime import timedelta
@@ -31,11 +33,27 @@ def signup(request):
         return redirect("dashboard")
     form = SignUpForm(request.POST or None)
     if request.method == "POST" and form.is_valid():
-        user = form.save()
+        with transaction.atomic():
+            # Serializa os cadastros iniciais para que somente a primeira conta
+            # receba o perfil de administrador, inclusive em acessos simultâneos.
+            with connection.cursor() as cursor:
+                cursor.execute("SELECT pg_advisory_xact_lock(%s)", [7342026])
+            first_user = not get_user_model().objects.exists()
+            user = form.save()
+            if first_user:
+                user.profile.role = Profile.Role.ADMIN
+                user.profile.save()
         login(request, user)
-        messages.success(request, "Usuário criado com sucesso.")
+        messages.success(
+            request,
+            "Administrador inicial criado com sucesso."
+            if first_user else "Usuário criado com sucesso.",
+        )
         return redirect("dashboard")
-    return render(request, "registration/signup.html", {"form": form})
+    return render(request, "registration/signup.html", {
+        "form": form,
+        "first_user": not get_user_model().objects.exists(),
+    })
 
 
 @login_required

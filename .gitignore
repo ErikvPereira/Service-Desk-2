@@ -1,9 +1,13 @@
 .env
-.env.example
 __pycache__/
 *.py[cod]
 .pytest_cache/
 staticfiles/
 postgres_data/
+backups/
+tmp/
+*.dump
+*.sql
+*.sqlite3
 .venv/
 venv/

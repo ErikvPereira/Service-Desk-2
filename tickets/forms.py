@@ -29,9 +29,16 @@ class TicketUpdateForm(forms.ModelForm):
     class Meta:
         model = Ticket
         fields = ("category", "priority", "status", "assignee")
+        labels = {
+            "category": "Categoria",
+            "priority": "Prioridade",
+            "status": "Status",
+            "assignee": "Responsável",
+        }
 
     def __init__(self, *args, user, **kwargs):
         super().__init__(*args, **kwargs)
+        self.fields["assignee"].empty_label = "Não atribuído"
         if not is_staff_member(user):
             for field in self.fields.values():
                 field.disabled = True

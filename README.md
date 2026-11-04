@@ -36,12 +36,12 @@ As regras que mudam o ciclo de vida ficam em `tickets/services.py`, não nos tem
 | Visualizar todos os chamados | Não | Sim | Sim |
 | Comentar | Somente comentário público em chamados próprios | Sim | Sim |
 | Atribuir, alterar prioridade/categoria/status | Não | Sim | Sim |
-| Gerenciar usuários e cadastros de apoio | Não | Django Admin (superusuário) | Django Admin (superusuário) |
-| Excluir chamado | Não | Não | Somente superusuário pela API/Admin |
+| Gerenciar usuários e cadastros de apoio | Não | Não | Sim, pelo Django Admin |
+| Excluir chamado | Não | Não | Sim, pela API ou Django Admin |
 
 Transições permitidas: **Aberto → Em andamento/Encerrado**, **Em andamento → Aguardando solicitante/Resolvido/Encerrado**, **Aguardando solicitante → Em andamento/Resolvido/Encerrado**, **Resolvido → Encerrado/Em andamento** e **Encerrado → Em andamento** (reabertura). Atribuições exigem um agente ou administrador ativo. Registros de auditoria não podem ser alterados nem excluídos pelo domínio da aplicação.
 
-Usuários inativos não conseguem autenticar-se; responsáveis inativos são recusados pela validação do modelo. O perfil Administrador recebe acesso ao Django Admin, mas apenas superusuários podem promover outro usuário a Administrador ou excluir usuários. Todas as operações relevantes são registradas com responsável, data e valores anterior/posterior quando houver mudança de campo. Edições e exclusões de comentários também geram auditoria. A exclusão de chamados está desativada no Django Admin.
+Usuários inativos não conseguem autenticar-se; responsáveis inativos são recusados pela validação do modelo. O perfil Administrador recebe acesso ao Django Admin e às permissões de gerenciamento do sistema. Somente um superusuário pode alterar ou excluir outro superusuário. Todas as operações relevantes são registradas com responsável, data e valores anterior/posterior quando houver mudança de campo. Edições e exclusões de comentários também geram auditoria. A exclusão de chamados fica restrita aos administradores.
 
 ## Executar com Docker
 
@@ -52,15 +52,11 @@ cp .env.example .env
 docker compose up --build
 ```
 
-O serviço aguarda o healthcheck do PostgreSQL, aplica as migrações, coleta os estáticos e fica disponível em [http://localhost:8000](http://localhost:8000). A documentação interativa da API fica em [http://localhost:8000/api/docs/](http://localhost:8000/api/docs/). O endpoint `/health/` verifica a aplicação e a conexão com o banco.
+O serviço aguarda o healthcheck do PostgreSQL, aplica as migrações, cria as categorias iniciais, coleta os estáticos e fica disponível em [http://localhost:8000](http://localhost:8000). A documentação interativa da API fica em [http://localhost:8000/api/docs/](http://localhost:8000/api/docs/). O endpoint `/health/` verifica a aplicação e a conexão com o banco.
 
-Crie o primeiro administrador em outro terminal:
+Na primeira execução, acesse **Criar usuário** na tela de login. A primeira conta cadastrada recebe automaticamente o perfil Administrador e acesso ao painel em [http://localhost:8000/admin/](http://localhost:8000/admin/). As contas criadas depois dela recebem o perfil Solicitante; o administrador pode alterar seus perfis pelo painel.
 
-```bash
-docker compose exec web python manage.py createsuperuser
-```
-
-O administrador também pode cadastrar categorias, usuários e perfis em [http://localhost:8000/admin/](http://localhost:8000/admin/). Após criar usuários, ajuste seu perfil para Agente ou Administrador nessa tela quando necessário.
+O repositório não contém usuários nem chamados. Esses dados são criados somente no PostgreSQL da instalação e permanecem fora do Git.
 
 ### Acesso à API
 
@@ -101,4 +97,4 @@ No Windows, use os equivalentes em `.venv\\Scripts`. O banco principal é sempre
 
 ## Limitações conhecidas
 
-O projeto usa autenticação por sessão para a API, adequada à aplicação web integrada. Para clientes externos, recomenda-se acrescentar tokens rotativos/OIDC conforme a política corporativa. O envio de e-mail e SLAs por calendário não foram incluídos; indicadores de tempo consideram a duração entre abertura e resolução registrada.
+A API aceita autenticação por sessão e por token revogável. Para ambientes com requisitos corporativos mais rígidos, recomenda-se adotar tokens rotativos ou OIDC. O envio de e-mail e SLAs por calendário não foram incluídos; indicadores de tempo consideram a duração entre abertura e resolução registrada.
