@@ -4,7 +4,7 @@ from django.contrib.staticfiles.urls import staticfiles_urlpatterns
 from django.urls import include, path
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
 from rest_framework.permissions import IsAdminUser
-from tickets.authentication import ObtainExpiringAuthToken
+from tickets.api_tokens import ObtainExpiringAuthToken
 from django.http import JsonResponse
 from django.views.decorators.http import require_GET
 
