@@ -4,7 +4,7 @@ from django.core.exceptions import ValidationError
 from django.urls import reverse
 from django.contrib.auth import authenticate
 from django.contrib.auth.models import AnonymousUser
-from django.test import override_settings
+from django.test import RequestFactory, override_settings
 from rest_framework.authtoken.models import Token
 from rest_framework.test import APIClient
 from .models import AuditLog, Category, Profile, Ticket
@@ -157,7 +157,8 @@ def test_login_and_inactive_user(client, requester):
     assert response.status_code == 302
     requester.is_active = False
     requester.save()
-    assert authenticate(username=requester.username, password="safe-password-123") is None
+    request = RequestFactory().post(reverse("login"))
+    assert authenticate(request=request, username=requester.username, password="safe-password-123") is None
 
 
 @pytest.mark.django_db
@@ -269,8 +270,8 @@ def test_api_comment_create_update_delete_are_audited(ticket, requester):
 
 @pytest.mark.django_db
 def test_schema_and_token_endpoint_work(client):
-    assert client.get("/api/schema/").status_code == 403
-    assert client.get("/api/docs/").status_code == 403
+    assert client.get("/api/schema/").status_code == 401
+    assert client.get("/api/docs/").status_code == 401
     assert client.post("/api/token/", {}).status_code == 400
     admin_user = User.objects.create_superuser("schema-admin", "schema@example.test", "safe-password-123")
     client.force_login(admin_user)
