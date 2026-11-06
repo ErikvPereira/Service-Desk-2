@@ -134,7 +134,15 @@ def ticket_detail(request, pk):
     ticket = get_object_or_404(visible_tickets(request.user), pk=pk)
     can_manage = is_staff_member(request.user)
     comment_form = CommentForm(request.POST or None, user=request.user, prefix="comment")
-    update_form = TicketUpdateForm(request.POST or None, instance=ticket, user=request.user, prefix="update")
+    # ModelForm validation writes cleaned fields onto its instance. Keep that
+    # bound instance separate so update_ticket receives the persisted values
+    # and can enforce transitions and audit the actual changes.
+    update_instance = (
+        Ticket.objects.get(pk=ticket.pk)
+        if request.method == "POST" and "update_ticket" in request.POST
+        else ticket
+    )
+    update_form = TicketUpdateForm(request.POST or None, instance=update_instance, user=request.user, prefix="update")
     if request.method == "POST":
         if "add_comment" in request.POST and comment_form.is_valid():
             comment = comment_form.save(commit=False)
